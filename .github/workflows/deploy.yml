@@ -1,17 +1,15 @@
-name: Build and Deploy
+name: Deploy
 
 on:
   workflow_dispatch: {}
 
 env:
-  applicationfolder: spring-boot-hello-world-example
   AWS_REGION: us-east-1
   S3BUCKET: codedeploystack-webappdeploymentbucket-zdq0eepcojbk
 
 
 jobs:
   deploy:
-    needs: build
     runs-on: ubuntu-latest
     environment: Dev
     permissions:
