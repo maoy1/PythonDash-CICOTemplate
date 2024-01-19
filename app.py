@@ -106,5 +106,5 @@ def update_output(value):
     the host IP 0.0.0.0 is needed for dockerized version of this dash application
 """
 if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0', port=8050)
+    app.run_server(debug=False, host='0.0.0.0', port=8080)
     server = app.server # required for some deployment environment like Heroku
