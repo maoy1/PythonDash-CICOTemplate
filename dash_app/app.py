@@ -1,110 +1,204 @@
-import pandas as pd
 import dash
-from dash import html, dcc, Input, Output
+from dash import Dash, html,dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
+from dash.exceptions import PreventUpdate
+from datetime import timedelta
+import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-import sys
-import argparse
 
-class CrashData():
-    def __init__(self, csvfile):
-        try:
-            self.df = pd.read_csv(csvfile, index_col=0)
-            print(f'The shape before cleansing {self.df.shape}')
-            self.df = self.df.loc[self.df['Loc_Local_Government_Area'] != 'Unknown', 
-                ['Crash_Year','Crash_Type','Crash_Longitude','Crash_Latitude']]
-            print(f'The shape after cleansing {self.df.shape}')
-        except:
-            sys.exit('Unable to load data file')
-        self.year_min, self.year_max = self.df['Crash_Year'].min().item(), self.df['Crash_Year'].max().item()
-        self.center_long, self.center_lat = self.df['Crash_Longitude'].mean().item(), self.df['Crash_Latitude'].mean().item()
-        self.center_long, self.center_lat = 153.0260, -27.4705
-        self.crashtype_list = self.df['Crash_Type'].unique().tolist()
 
-parser = argparse.ArgumentParser(description = "Dash application arguments")
-parser.add_argument("-f", "--File", help = "The CSV data file", required = False, default = "crash_data.csv")     
-argument = parser.parse_args()
-data_file = argument.File
+# Use the output from the extract_start_db_jenkins_build_xml.py
+df_jobs = pd.read_csv('data/jenkins_jobs.csv')
+jobs = df_jobs['batch'].sort_values(ascending=False).unique()
+jobs_options = [{"label": value, "value": value} for value in jobs]
 
-data = CrashData(data_file)  # load the data and compute metadata
-df = data.df        # the dataframe containing the crash data
+# use the output from the extract_xfire_log.py
+df_xfire = pd.read_csv('data/job_details.csv')
+batchs = df_xfire['batch'].sort_values(ascending=False).unique()
+batch_options = [{"label": value, "value": value} for value in batchs]
 
-# create the dash application using the above layout definition
-app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
-# mapping each crash type to a colour using the predefined palette
-color_discrete_map = dict(zip(data.crashtype_list, px.colors.qualitative.Plotly[:len(data.crashtype_list)]))
+filtered_df = df_xfire.sort_values(by='duration', ascending=False)
+step_options = [{"label": value, "value": value} for value in filtered_df['name'].unique()]
 
-""" Create a figure containing the map layer superimposed with the car crashes data
-    Parameters are for the data filtering according to the year range (year_range)
-    and the crash type (type_list)
-"""
+app = Dash(__name__)
+
+app.layout = html.Div([
+    dcc.Store(id='memory-output-batches'),
+    dcc.Store(id='memory-output-jobs'),
+    #html.Div(children=[
+    html.H1('Xfire Fabrication Time Analyse'),
+    html.Div(children=[
+        html.Div(children=[
+            html.Button("Download Jenkins Jobs Data csv", id="btn-download-jenkins-jobs-data"),
+            dcc.Download(id="download-jenkins-jobs-data"),
+        ], style={'flex': 1}),
+        html.Div(children=[
+            html.Button("Download Jobs Details csv", id="btn-download-job-details-data"),
+            dcc.Download(id="download-job-details-data"),
+        ], style={ 'flex': 1}),
+        html.Div(children=[
+            html.Button("Update Data Files", id="btn-fetch-data"),
+            html.Label(f"   Last Update: {jobs[0]} and {batchs[0]}"),
+        ], style={ 'flex': 2, }),
+    ], style={'padding': 10, 'display': 'flex', 'flexDirection': 'row'}),
+    
+    html.Br(),   html.Br(),
+    html.Div(children=[
+        html.Div(children=[
+        html.Label('Jenkins Logs for \"start db fabrication\" Analyse'),
+        dcc.Dropdown(id="job_log", options=jobs_options, value=jobs[-3]),
+        html.Label('Jobs Relationship'),
+        html.Div(children=[
+            html.Div(children=[
+                dcc.Graph(id="graph-jobs-timeline"),
+            ], style={'flex': 3}),
+            html.Div(children=[
+                dcc.Graph(id="graph-jobs-trend"),
+            ], style={ 'flex': 1}),
+        ], style={'display': 'flex', 'flexDirection': 'row'}),
+
+        html.Label('Choose xfrun_build to see Data Merge Substeps Analyse(7b), choose summus to see summus substeps analyse (7c)'),
+        dcc.Dropdown(id="batch_name",
+                        options=batch_options,
+                        value=batchs[0]),
+        html.Div(children=[
+            html.Div(children=[
+                dcc.Graph(id="graph-batch-pie", figure=go.Figure(go.Sunburst())),
+            ], style={'padding': 10,'padding': 10, 'flex': 1}),
+            html.Div(children=[
+                dcc.Graph(id="graph-batch-multi-pie", figure=go.Figure(go.Sunburst())),
+            ], style={'padding': 10, 'flex': 1}),
+        ], style={'display': 'flex', 'flexDirection': 'row'}),
+        dcc.Graph(id="graph-batch-timeline"),
+        ], style={'padding': 10, 'flex': 2},),
+    ], style={'display': 'flex', 'flexDirection': 'row'}),
+    #]),
+     
+    html.Label('Steps/Jobs Excution Time Trend'),
+    dcc.Dropdown(id="steps-name",
+                options=step_options,
+                value=[':substances', 'get_kws.sh', 'drop_orphans'],
+                multi=True,),
+    dcc.Graph(id="graph-steps-devel"),
+])
+
+@app.callback(Output('memory-output-jobs', 'data'),
+              Input('job_log', 'value'))
+def on_set_table(job_name):
+    if job_name is None :
+        raise PreventUpdate
+    return df_jobs[df_jobs['batch'] == job_name].to_dict('records')
+
+
+@app.callback(Output('memory-output-batches', 'data'),
+              Input('batch_name', 'value'))
+def on_set_table(batch_name):
+    if batch_name is None :
+        raise PreventUpdate
+    return df_xfire[df_xfire['batch'] == batch_name].to_dict('records')
+
+
+@app.callback(Output("graph-jobs-trend", "figure"), 
+               Input('batch_name', 'value'))
+def update_chart(data):
+    data = df_jobs[df_jobs['phase'] == 'complete']
+    fig = px.scatter(data, x='start_time', y='duration', title="Xfire Fabrication Time Trend", hover_data='duration_string')
+    fig.update(layout=dict(title=dict(x=0.5)))
+    return fig
+
+@app.callback(Output("graph-jobs-timeline", "figure"), 
+               Input("memory-output-jobs", "data"))
+def update_chart(data_dict):
+    data = pd.DataFrame.from_dict(data_dict)
+    start_date = min(data['start_time'])
+    end_date = max(data['end_time'])
+    duration_all = data['duration_string'].iloc[0]
+    data = data[1:]
+    fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="phase", hover_data='duration_string')
+    px.colors
+    fig.add_shape(type='line', yref='paper', x0=start_date, x1=start_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
+    fig.add_shape(type='line', yref='paper', x0=end_date, x1=end_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'),label=dict(text=duration_all))
+    # Set the layout of the figure
+    fig.update_layout(
+        title='The complete Jenkins Job \"start db fabrication\"',
+    )
+    return fig
+
+
+@app.callback(Output("graph-batch-pie", "figure"), 
+               Input("memory-output-batches", "data"))
+def update_chart(data_dict):
+    data = pd.DataFrame.from_dict(data_dict)
+    data = data[data['isLeaf']]
+    fig = px.pie(data, values='duration', names='name', hover_data='duration_string')
+    fig.update_traces(textposition='inside')
+    fig.update_layout(title="Substeps within one Batch")
+    fig.update_yaxes(type="category", categoryorder="category ascending")
+    fig.update_xaxes(type="-")
+    return fig
+
+
+@app.callback(Output("graph-batch-multi-pie", "figure"), 
+               Input("memory-output-batches", "data"))
+def update_chart(data_dict):
+    data = pd.DataFrame.from_dict(data_dict)
+    data = data[data['isLeaf']]
+    fig = px.sunburst(data, path=['parent', 'name'], values='duration', color='parent', hover_data='duration_string')
+    fig.update_layout(title="Substeps with parent step within one Batch")
+    return fig
+
+
+@app.callback(Output("graph-batch-timeline", "figure"), 
+               Input("memory-output-batches", "data"))
+def update_chart(data_dict):
+    data = pd.DataFrame.from_dict(data_dict)
+
+    start_xfrun = data[data['name']== 'xfrun']['start_time'].iloc[0]
+    end_xfrun = data[data['name'] == 'xfrun']['end_time'].iloc[0]
+    duration_xfrun = str(data[data['name'] == 'xfrun']['duration_string'].iloc[0])
+    data = data[data['isLeaf']]
+    fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="name", hover_data='duration_string')
+    fig.update_yaxes(autorange="reversed")
+    fig.add_shape(type='line', yref='paper', x0=start_xfrun, x1=start_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
+    fig.add_shape(type='line', yref='paper', x0=end_xfrun, x1=end_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'),label=dict(text=duration_xfrun))
+    fig.update_layout(
+        title='The Job xfrun/data merge/summus',
+        #showlegend=False,
+        #xaxis=dict(title='Date'),
+        #yaxis=dict(title='Task', showgrid=False),
+    )
+    return fig
+
+
+@app.callback(Output("graph-steps-devel", "figure"), 
+               Input("steps-name", "value"))
+def update_chart(steps_name):
+    if steps_name is None:
+        raise PreventUpdate
+    data = df_xfire.query('name in @steps_name')
+    #print(data)
+    fig = px.line(data, x='start_time', y='duration', color='name', hover_data='duration_string')
+    fig.update(layout=dict(title=dict(x=0.5)))
+    return fig
+
+
 @app.callback(
-    Output('mapbox', 'figure'),
-    [
-        Input('year-range-slider', 'value'),
-        Input('type-check-list', 'value')
-    ])
-def plot_crash_location(year_range, type_list):
-    # filter
-    pdf = df[(df['Crash_Year'] >= year_range[0]) & (df['Crash_Year'] <= year_range[1]) & (df['Crash_Type'].isin(type_list))]
-    # create the interactive map
-    fig = px.scatter_mapbox(pdf, lat=pdf['Crash_Latitude'], lon=pdf['Crash_Longitude'], color='Crash_Type', 
-        zoom=8, height=600, title=None, opacity=.5, 
-        color_discrete_map=color_discrete_map,
-        center={'lat': data.center_lat, 'lon': data.center_long}
-        )
-    fig.update_layout(mapbox_style='open-street-map', margin={"r": 0, "l": 0, "b": 20})
-    fig['layout']['uirevision'] = 'unchanged' # to preseve the ui setting such as zoom and panning in the update
-    return fig 
-
-""" Create the layout of the web-based dashboard using dash bootstrap components and dash core components
-"""
-rows = html.Div(
-    [
-        dbc.Row(dbc.Col(html.Div([
-            html.H3(id = 'title', children = 'Crash Locations'),
-            html.H5(id = 'subtitle', children = 'Based on dataset from Department of Transport and Main Roads, Queensland Government'),
-        ], style = {'textAlign': 'center', 'marginTop': 40, 'marginBottom': 40}))),
-        dbc.Row(
-            [
-                dbc.Col(html.Div(
-                    id='div-sidebar', children = [
-                        dbc.Card(dbc.CardBody([
-                            html.H6(children = 'Years'),
-                            dcc.RangeSlider(data.year_min, data.year_max, 1,
-                            value=[data.year_min, data.year_max],
-                            marks={data.year_min: str(data.year_min), data.year_max: str(data.year_max)},
-                            id='year-range-slider'),
-                            html.Div(id='year-range-text')])
-                        ),
-                        dbc.Card(dbc.CardBody(
-                            [
-                            html.H6(children = 'Crash Types'),
-                            dbc.Checklist(data.crashtype_list, data.crashtype_list, id ='type-check-list')
-                            ])
-                        )
-                    ], style={'marginLeft': 20, 'marginRight': 20}), width=3),
-                dbc.Col(html.Div(id='div-body',children = [
-                    dcc.Graph(id = 'mapbox')
-                ]), width=9),
-            ]
-        ),
-    ]
+    Output("download-jenkins-jobs-data", "data"),
+    Input("btn-download-jenkins-jobs-data", "n_clicks"),
+    prevent_initial_call=True,
 )
-app.layout = dbc.Container(rows, fluid=True) # the dbc container is essential as the root for other dbc layout
+def func(n_clicks):
+    return dcc.send_data_frame(df_jobs.to_csv, "jenkins_jobs.csv")
 
-""" the callback function for updating the year range slider
-"""
+
 @app.callback(
-    Output('year-range-text', 'children'),
-    [Input('year-range-slider', 'value')])
-def update_output(value):
-    return 'From {} to {}'.format(value[0], value[1])
+    Output("download-job-details-data", "data"),
+    Input("btn-download-job-details-data", "n_clicks"),
+    prevent_initial_call=True,
+)
+def func(n_clicks):
+    return dcc.send_data_frame(df_xfire.to_csv, "job_details.csv")
 
-""" start the web application
-    the host IP 0.0.0.0 is needed for dockerized version of this dash application
-"""
-if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0', port=8080)
-    server = app.server # required for some deployment environment like Heroku
+if __name__ == "__main__":
+    app.run_server(debug=False, host='0.0.0.0', port="8080")
