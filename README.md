@@ -35,7 +35,7 @@ A trimmed version is provided here for testing. Please download the original set
 Use the `-f` flag to specify the road crash data CSV file.
 
 ```
-python app.py -f road_crash.csv
+python dash_app/app.py -f dash_app/crash_data.csv
 ```
 
 ### Licences
