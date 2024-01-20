@@ -4,6 +4,6 @@ After=multi-user.target
 [Service]
 Type=simple
 Restart=always
-ExecStart=/usr/bin/python3 /home/ec2-user/dash_app/app.py -f /home/ec2-user/dash_app/crash_data.csv
+ExecStart=/usr/bin/python3 /home/ec2-user/dash_app/app.py
 [Install]
 WantedBy=multi-user.target
