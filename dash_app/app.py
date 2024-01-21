@@ -1,8 +1,6 @@
-import dash
 from dash import Dash, html,dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
-from datetime import timedelta
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -177,9 +175,14 @@ def update_chart(steps_name):
     if steps_name is None:
         raise PreventUpdate
     data = df_xfire.query('name in @steps_name')
-    #print(data)
+    data.to_csv("job_details_small.csv")
+    print("update_chart 1 data", data.shape)
+    #print("update_chart 2 steps_name", steps_name)
+    #fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="name", hover_data='duration_string')
     fig = px.line(data, x='start_time', y='duration', color='name', hover_data='duration_string')
+    #print("update_chart 3 fig", fig)
     fig.update(layout=dict(title=dict(x=0.5)))
+    #print("update_chart 4 data, fig.update", fig)
     return fig
 
 
@@ -188,7 +191,7 @@ def update_chart(steps_name):
     Input("btn-download-jenkins-jobs-data", "n_clicks"),
     prevent_initial_call=True,
 )
-def func(n_clicks):
+def func1(n_clicks):
     return dcc.send_data_frame(df_jobs.to_csv, "jenkins_jobs.csv")
 
 
@@ -197,7 +200,7 @@ def func(n_clicks):
     Input("btn-download-job-details-data", "n_clicks"),
     prevent_initial_call=True,
 )
-def func(n_clicks):
+def func2(n_clicks):
     return dcc.send_data_frame(df_xfire.to_csv, "job_details.csv")
 
 if __name__ == "__main__":
