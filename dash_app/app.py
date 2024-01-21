@@ -125,7 +125,7 @@ def update_chart(data_dict):
     fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="phase", hover_data=['duration_string'])
     px.colors
     fig.add_shape(type='line', yref='paper', x0=start_date, x1=start_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
-    fig.add_shape(type='line', yref='paper', x0=end_date, x1=end_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'),label=dict(text=duration_all))
+    fig.add_shape(type='line', yref='paper', x0=end_date, x1=end_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
     # Set the layout of the figure
     fig.update_layout(
         title='The complete Jenkins Job \"start db fabrication\"',
@@ -168,7 +168,7 @@ def update_chart(data_dict):
     fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="name", hover_data=['duration_string'])
     fig.update_yaxes(autorange="reversed")
     fig.add_shape(type='line', yref='paper', x0=start_xfrun, x1=start_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
-    fig.add_shape(type='line', yref='paper', x0=end_xfrun, x1=end_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'),label=dict(text=duration_xfrun))
+    fig.add_shape(type='line', yref='paper', x0=end_xfrun, x1=end_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
     fig.update_layout(
         title='The Job xfrun/data merge/summus',
         #showlegend=False,
