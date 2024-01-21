@@ -4,15 +4,24 @@ from dash.exceptions import PreventUpdate
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+import argparse
 
+parser = argparse.ArgumentParser(description = "Dash application arguments")
+parser.add_argument("--JenkinsJobs", help = "The Jenkins Job CSV data file", required = False, default = "data/jenkins_jobs.csv")     
+parser.add_argument("--JobDetails", help = "The Job Detail CSV data file", required = False, default = "data/job_details.csv")     
+argument = parser.parse_args()
+job_file = argument.JenkinsJobs
+detail_file = argument.JobDetails
 
+#print ("job_file", job_file)
+#print ("detail_file", detail_file)
 # Use the output from the extract_start_db_jenkins_build_xml.py
-df_jobs = pd.read_csv('data/jenkins_jobs.csv')
+df_jobs = pd.read_csv(job_file)
 jobs = df_jobs['batch'].sort_values(ascending=False).unique()
 jobs_options = [{"label": value, "value": value} for value in jobs]
 
 # use the output from the extract_xfire_log.py
-df_xfire = pd.read_csv('data/job_details.csv')
+df_xfire = pd.read_csv(detail_file)
 batchs = df_xfire['batch'].sort_values(ascending=False).unique()
 batch_options = [{"label": value, "value": value} for value in batchs]
 
@@ -204,4 +213,4 @@ def func2(n_clicks):
     return dcc.send_data_frame(df_xfire.to_csv, "job_details.csv")
 
 if __name__ == "__main__":
-    app.run_server(debug=False, host='0.0.0.0', port="8080")
+    app.run_server(debug=True, host='0.0.0.0', port="8080")
