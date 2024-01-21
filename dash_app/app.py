@@ -110,7 +110,7 @@ def on_set_table(batch_name):
                Input('batch_name', 'value'))
 def update_chart(data):
     data = df_jobs[df_jobs['phase'] == 'complete']
-    fig = px.scatter(data, x='start_time', y='duration', title="Xfire Fabrication Time Trend", hover_data='duration_string')
+    fig = px.scatter(data, x='start_time', y='duration', title="Xfire Fabrication Time Trend", hover_data=['duration_string'])
     fig.update(layout=dict(title=dict(x=0.5)))
     return fig
 
@@ -122,7 +122,7 @@ def update_chart(data_dict):
     end_date = max(data['end_time'])
     duration_all = data['duration_string'].iloc[0]
     data = data[1:]
-    fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="phase", hover_data='duration_string')
+    fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="phase", hover_data=['duration_string'])
     px.colors
     fig.add_shape(type='line', yref='paper', x0=start_date, x1=start_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
     fig.add_shape(type='line', yref='paper', x0=end_date, x1=end_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'),label=dict(text=duration_all))
@@ -138,7 +138,7 @@ def update_chart(data_dict):
 def update_chart(data_dict):
     data = pd.DataFrame.from_dict(data_dict)
     data = data[data['isLeaf']]
-    fig = px.pie(data, values='duration', names='name', hover_data='duration_string')
+    fig = px.pie(data, values='duration', names='name', hover_data=['duration_string'])
     fig.update_traces(textposition='inside')
     fig.update_layout(title="Substeps within one Batch")
     fig.update_yaxes(type="category", categoryorder="category ascending")
@@ -151,7 +151,7 @@ def update_chart(data_dict):
 def update_chart(data_dict):
     data = pd.DataFrame.from_dict(data_dict)
     data = data[data['isLeaf']]
-    fig = px.sunburst(data, path=['parent', 'name'], values='duration', color='parent', hover_data='duration_string')
+    fig = px.sunburst(data, path=['parent', 'name'], values='duration', color='parent', hover_data=['duration_string'])
     fig.update_layout(title="Substeps with parent step within one Batch")
     return fig
 
@@ -165,7 +165,7 @@ def update_chart(data_dict):
     end_xfrun = data[data['name'] == 'xfrun']['end_time'].iloc[0]
     duration_xfrun = str(data[data['name'] == 'xfrun']['duration_string'].iloc[0])
     data = data[data['isLeaf']]
-    fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="name", hover_data='duration_string')
+    fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="name", hover_data=['duration_string'])
     fig.update_yaxes(autorange="reversed")
     fig.add_shape(type='line', yref='paper', x0=start_xfrun, x1=start_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
     fig.add_shape(type='line', yref='paper', x0=end_xfrun, x1=end_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'),label=dict(text=duration_xfrun))
@@ -188,7 +188,7 @@ def update_chart(steps_name):
     print("update_chart 1 data", data.shape)
     #print("update_chart 2 steps_name", steps_name)
     #fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="name", hover_data='duration_string')
-    fig = px.line(data, x='start_time', y='duration', color='name', hover_data='duration_string')
+    fig = px.line(data, x='start_time', y='duration', color='name', hover_data=['duration_string'])
     #print("update_chart 3 fig", fig)
     fig.update(layout=dict(title=dict(x=0.5)))
     #print("update_chart 4 data, fig.update", fig)
