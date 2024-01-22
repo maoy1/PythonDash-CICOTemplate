@@ -35,8 +35,6 @@ JOBS = []
 
 def update_data_func(job_file, detail_file):
     # download, extract data
-    print (f"update_data_func {WORKDIR}/scripts/prepare_data.sh ${job_file} ${detail_file}")
-    os.system(f"{WORKDIR}/scripts/prepare_data.sh ${job_file} ${detail_file}")
     df_jobs = pd.read_csv(job_file)
     global JOBS
     JOBS = df_jobs["batch"].sort_values(ascending=False).unique()
@@ -58,7 +56,7 @@ def update_data_func(job_file, detail_file):
     return df_jobs, df_details
 
 
-# update_data_func(job_file, detail_file)
+update_data_func(job_file, detail_file)
 app = Dash(__name__)
 
 app.layout = html.Div(
@@ -188,7 +186,9 @@ app.layout = html.Div(
     Input("btn-fetch-data", "n_clicks"),
 )
 def update_data(n_clicks):
-    print ("update_data", job_file, detail_file)
+    print (f"update_data {WORKDIR}/scripts/prepare_data.sh ${job_file} ${detail_file}")
+    os.system(f"{WORKDIR}/scripts/prepare_data.sh ${job_file} ${detail_file}")
+
     df_jobs, df_details = update_data_func(job_file, detail_file)
     return df_jobs.to_dict("records"), df_details.to_dict("records")
 
