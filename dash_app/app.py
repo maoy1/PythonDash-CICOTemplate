@@ -58,7 +58,7 @@ def update_data_func(job_file, detail_file):
     return df_jobs, df_details
 
 
-update_data_func(job_file, detail_file)
+# update_data_func(job_file, detail_file)
 app = Dash(__name__)
 
 app.layout = html.Div(
