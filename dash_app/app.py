@@ -412,4 +412,4 @@ def update_step_trend(steps_name, data_dict):
 if __name__ == "__main__":
     # update_data(job_file, detail_file)
 
-    app.run_server(debug=True, host="0.0.0.0", port="8080")
+    app.run_server(debug=False, host="0.0.0.0", port="8080")
