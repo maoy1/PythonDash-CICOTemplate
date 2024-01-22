@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-parser = argparse.ArgumentParser(description="Dash application arguments")
+parser = argparse.ArgumentParser(description="extract xfire log application arguments")
 parser.add_argument(
     "--InputFile",
     help="Input file to extract Jenkins Job file",
@@ -20,6 +20,7 @@ parser.add_argument(
 argument = parser.parse_args()
 input_file = argument.InputFile
 output_file = argument.Output
+print("extract_xfire_log",output_file )
 
 
 def seconds_to_duration(seconds):

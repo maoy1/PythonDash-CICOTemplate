@@ -1,6 +1,6 @@
-#!/bin/bash
-workdir=$(dirname $0)
-workdir="$(dirname "$workdir")"
+#!/bin/bash -x
+workdir0=$(dirname $0)
+workdir="$(dirname "$workdir0")"
 job_file=${1-"data/jenkins_jobs.csv"}
 detail_file=${2-"data/job_details.csv"}
 data_folder="data"

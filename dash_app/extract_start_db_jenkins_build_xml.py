@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
 
-parser = argparse.ArgumentParser(description="Dash application arguments")
+parser = argparse.ArgumentParser(description="Extract db fabrication data arguments")
 parser.add_argument(
     "--InputDir",
     help="Input file to extract Jenkins Job file",
@@ -24,7 +24,7 @@ parser.add_argument(
 argument = parser.parse_args()
 input_dir = argument.InputDir
 output_file = argument.Output
-
+print("extract_start_db_jenkins_build_xml",output_file )
 
 def duration_to_seconds(duration_str):
     units = {"day": 86400, "hr": 3600, "min": 60, "sec": 1}
