@@ -1,10 +1,11 @@
-from dash import Dash, html,dcc, Input, Output, dash_table
-import dash_bootstrap_components as dbc
+from dash import Dash, html,dcc, Input, Output, State
 from dash.exceptions import PreventUpdate
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import argparse
+import os
+import sys
 
 parser = argparse.ArgumentParser(description = "Dash application arguments")
 parser.add_argument("--JenkinsJobs", help = "The Jenkins Job CSV data file", required = False, default = "data/jenkins_jobs.csv")     
@@ -12,27 +13,44 @@ parser.add_argument("--JobDetails", help = "The Job Detail CSV data file", requi
 argument = parser.parse_args()
 job_file = argument.JenkinsJobs
 detail_file = argument.JobDetails
+SCRIPTPATH = sys.path[0]
+WORKDIR=os.path.dirname(SCRIPTPATH)
+JOBS_OPTIONS = []
+BATCH_OPTIONS = []
+STEP_OPTIONS = []
+BATCHES = []
+JOBS = []
 
-#print ("job_file", job_file)
-#print ("detail_file", detail_file)
-# Use the output from the extract_start_db_jenkins_build_xml.py
-df_jobs = pd.read_csv(job_file)
-jobs = df_jobs['batch'].sort_values(ascending=False).unique()
-jobs_options = [{"label": value, "value": value} for value in jobs]
+def update_data_func(job_file, detail_file):
+    #download, extract data 
+    os.system(f"{WORKDIR}/scripts/prepare_data.sh ${job_file} ${detail_file}")
+    df_jobs = pd.read_csv(job_file)
+    global JOBS
+    JOBS = df_jobs['batch'].sort_values(ascending=False).unique()
+    global JOBS_OPTIONS
+    JOBS_OPTIONS = [{"label": value, "value": value} for value in JOBS]
 
-# use the output from the extract_xfire_log.py
-df_xfire = pd.read_csv(detail_file)
-batchs = df_xfire['batch'].sort_values(ascending=False).unique()
-batch_options = [{"label": value, "value": value} for value in batchs]
+    # use the output from the extract_xfire_log.py
+    df_details = pd.read_csv(detail_file)
+    global BATCHES
+    BATCHES = df_details['batch'].sort_values(ascending=False).unique()
+    global BATCH_OPTIONS
+    BATCH_OPTIONS = [{"label": value, "value": value} for value in BATCHES]
 
-filtered_df = df_xfire.sort_values(by='duration', ascending=False)
-step_options = [{"label": value, "value": value} for value in filtered_df['name'].unique()]
+    filtered_df = df_details.sort_values(by='duration', ascending=False)
+    global STEP_OPTIONS
+    STEP_OPTIONS = [{"label": value, "value": value} for value in filtered_df['name'].unique()]
+    return df_jobs, df_details
 
+
+update_data_func(job_file, detail_file)
 app = Dash(__name__)
 
 app.layout = html.Div([
-    dcc.Store(id='memory-output-batches'),
+    dcc.Store(id='memory-output-all-jobs'),
     dcc.Store(id='memory-output-jobs'),
+    dcc.Store(id='memory-output-all-details'),
+    dcc.Store(id='memory-output-details'),
     #html.Div(children=[
     html.H1('Xfire Fabrication Time Analyse'),
     html.Div(children=[
@@ -46,7 +64,7 @@ app.layout = html.Div([
         ], style={ 'flex': 1}),
         html.Div(children=[
             html.Button("Update Data Files", id="btn-fetch-data"),
-            html.Label(f"   Last Update: {jobs[0]} and {batchs[0]}"),
+            html.Label(f"   Last Update: {JOBS[0]} and {BATCHES[0]}"),
         ], style={ 'flex': 2, }),
     ], style={'padding': 10, 'display': 'flex', 'flexDirection': 'row'}),
     
@@ -54,7 +72,7 @@ app.layout = html.Div([
     html.Div(children=[
         html.Div(children=[
         html.Label('Jenkins Logs for \"start db fabrication\" Analyse'),
-        dcc.Dropdown(id="job_log", options=jobs_options, value=jobs[-3]),
+        dcc.Dropdown(id="job_log", options=JOBS_OPTIONS, value=JOBS[-3]),
         html.Label('Jobs Relationship'),
         html.Div(children=[
             html.Div(children=[
@@ -67,8 +85,8 @@ app.layout = html.Div([
 
         html.Label('Choose xfrun_build to see Data Merge Substeps Analyse(7b), choose summus to see summus substeps analyse (7c)'),
         dcc.Dropdown(id="batch_name",
-                        options=batch_options,
-                        value=batchs[0]),
+                        options=BATCH_OPTIONS,
+                        value=BATCHES[0]),
         html.Div(children=[
             html.Div(children=[
                 dcc.Graph(id="graph-batch-pie", figure=go.Figure(go.Sunburst())),
@@ -84,45 +102,87 @@ app.layout = html.Div([
      
     html.Label('Steps/Jobs Excution Time Trend'),
     dcc.Dropdown(id="steps-name",
-                options=step_options,
+                options=STEP_OPTIONS,
                 value=[':substances', 'get_kws.sh', 'drop_orphans'],
                 multi=True,),
-    dcc.Graph(id="graph-steps-devel"),
+    dcc.Graph(id="graph-steps-trend"),
 ])
 
+@app.callback(
+    [Output("memory-output-all-jobs", "data"),
+    Output("memory-output-all-details", "data")],
+    Input("btn-fetch-data", "n_clicks"),
+)
+def update_data(n_clicks):
+    df_jobs, df_details = update_data_func(job_file, detail_file)
+    return df_jobs.to_dict('records'), df_details.to_dict('records')
+
+
+@app.callback(
+    Output("download-jenkins-jobs-data", "data"),
+    Input("btn-download-jenkins-jobs-data", "n_clicks"),
+    State("memory-output-all-jobs", "data"),
+    prevent_initial_call=True,
+)
+def func1(_, dict):
+    return dcc.send_data_frame(pd.DataFrame.from_dict(dict).to_csv, "jenkins_jobs.csv")
+
+
+@app.callback(
+    Output("download-job-details-data", "data"),
+    Input("btn-download-job-details-data", "n_clicks"),
+    State("memory-output-all-details", "data"),
+    prevent_initial_call=True,
+)
+def func2(_, dict):
+    return dcc.send_data_frame(pd.DataFrame.from_dict(dict).to_csv, "job_details.csv")
+
+
+
 @app.callback(Output('memory-output-jobs', 'data'),
-              Input('job_log', 'value'))
-def on_set_table(job_name):
-    if job_name is None :
+              Input('job_log', 'value'),
+              Input("memory-output-all-jobs", "data"),
+              prevent_initial_call=True)
+def on_set_table_job(job_name, data_dict):
+    if job_name is None or data_dict is None :
         raise PreventUpdate
-    return df_jobs[df_jobs['batch'] == job_name].to_dict('records')
+    df = pd.DataFrame.from_dict(data_dict)
+    return df[df['batch'] == job_name].to_dict('records')
 
 
-@app.callback(Output('memory-output-batches', 'data'),
-              Input('batch_name', 'value'))
-def on_set_table(batch_name):
+@app.callback(Output('memory-output-details', 'data'),
+              Input('batch_name', 'value'),
+              Input("memory-output-all-details", "data"),
+              prevent_initial_call=True)
+def on_set_table_detail(batch_name, data_dict):
     if batch_name is None :
         raise PreventUpdate
-    return df_xfire[df_xfire['batch'] == batch_name].to_dict('records')
+    df = pd.DataFrame.from_dict(data_dict)
+    return df[df['batch'] == batch_name].to_dict('records')
 
 
 @app.callback(Output("graph-jobs-trend", "figure"), 
-               Input('batch_name', 'value'))
-def update_chart(data):
-    data = df_jobs[df_jobs['phase'] == 'complete']
+              Input("memory-output-all-jobs", "data"),)
+def update_jobs_trend(data_dict):
+    if data_dict is None :
+        raise PreventUpdate
+    df = pd.DataFrame.from_dict(data_dict)
+    data = df[df['phase'] == 'complete']
     fig = px.scatter(data, x='start_time', y='duration', title="Xfire Fabrication Time Trend", hover_data=['duration_string'])
     fig.update(layout=dict(title=dict(x=0.5)))
     return fig
 
 @app.callback(Output("graph-jobs-timeline", "figure"), 
                Input("memory-output-jobs", "data"))
-def update_chart(data_dict):
-    data = pd.DataFrame.from_dict(data_dict)
-    start_date = min(data['start_time'])
-    end_date = max(data['end_time'])
-    duration_all = data['duration_string'].iloc[0]
-    data = data[1:]
-    fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="phase", hover_data=['duration_string'])
+def update_jobs_timeline(data_dict):
+    if data_dict is None :
+        raise PreventUpdate
+    df = pd.DataFrame.from_dict(data_dict)
+    start_date = min(df['start_time'])
+    end_date = max(df['end_time'])
+    #duration_all = df['duration_string'].iloc[0]
+    df = df[1:]
+    fig = px.timeline(df, x_start="start_time", x_end="end_time", y="name", color="phase", hover_data=['duration_string'])
     px.colors
     fig.add_shape(type='line', yref='paper', x0=start_date, x1=start_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
     fig.add_shape(type='line', yref='paper', x0=end_date, x1=end_date, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
@@ -134,11 +194,13 @@ def update_chart(data_dict):
 
 
 @app.callback(Output("graph-batch-pie", "figure"), 
-               Input("memory-output-batches", "data"))
-def update_chart(data_dict):
-    data = pd.DataFrame.from_dict(data_dict)
-    data = data[data['isLeaf']]
-    fig = px.pie(data, values='duration', names='name', hover_data=['duration_string'])
+               Input("memory-output-details", "data"))
+def update_batch_pie(data_dict):
+    if data_dict is None :
+        raise PreventUpdate
+    df = pd.DataFrame.from_dict(data_dict)
+    df = df[df['isLeaf']]
+    fig = px.pie(df, values='duration', names='name', hover_data=['duration_string'])
     fig.update_traces(textposition='inside')
     fig.update_layout(title="Substeps within one Batch")
     fig.update_yaxes(type="category", categoryorder="category ascending")
@@ -147,25 +209,28 @@ def update_chart(data_dict):
 
 
 @app.callback(Output("graph-batch-multi-pie", "figure"), 
-               Input("memory-output-batches", "data"))
-def update_chart(data_dict):
-    data = pd.DataFrame.from_dict(data_dict)
-    data = data[data['isLeaf']]
-    fig = px.sunburst(data, path=['parent', 'name'], values='duration', color='parent', hover_data=['duration_string'])
+               Input("memory-output-details", "data"))
+def update_multi_pie(data_dict):
+    if data_dict is None :
+        raise PreventUpdate
+    df = pd.DataFrame.from_dict(data_dict)
+    df = df[df['isLeaf']]
+    fig = px.sunburst(df, path=['parent', 'name'], values='duration', color='parent', hover_data=['duration_string'])
     fig.update_layout(title="Substeps with parent step within one Batch")
     return fig
 
 
 @app.callback(Output("graph-batch-timeline", "figure"), 
-               Input("memory-output-batches", "data"))
+               Input("memory-output-details", "data"))
 def update_chart(data_dict):
-    data = pd.DataFrame.from_dict(data_dict)
-
-    start_xfrun = data[data['name']== 'xfrun']['start_time'].iloc[0]
-    end_xfrun = data[data['name'] == 'xfrun']['end_time'].iloc[0]
-    duration_xfrun = str(data[data['name'] == 'xfrun']['duration_string'].iloc[0])
-    data = data[data['isLeaf']]
-    fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="name", hover_data=['duration_string'])
+    if data_dict is None :
+        raise PreventUpdate
+    df = pd.DataFrame.from_dict(data_dict)
+    start_xfrun = df[df['name']== 'xfrun']['start_time'].iloc[0]
+    end_xfrun = df[df['name'] == 'xfrun']['end_time'].iloc[0]
+    #duration_xfrun = str(df[dadfta['name'] == 'xfrun']['duration_string'].iloc[0])
+    df = df[df['isLeaf']]
+    fig = px.timeline(df, x_start="start_time", x_end="end_time", y="name", color="name", hover_data=['duration_string'])
     fig.update_yaxes(autorange="reversed")
     fig.add_shape(type='line', yref='paper', x0=start_xfrun, x1=start_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
     fig.add_shape(type='line', yref='paper', x0=end_xfrun, x1=end_xfrun, y0=0, y1=1, yanchor='bottom', line=dict(color='green'))
@@ -178,39 +243,22 @@ def update_chart(data_dict):
     return fig
 
 
-@app.callback(Output("graph-steps-devel", "figure"), 
-               Input("steps-name", "value"))
-def update_chart(steps_name):
-    if steps_name is None:
+@app.callback(Output("graph-steps-trend", "figure"), 
+              Input("steps-name", "value"),
+              Input("memory-output-all-details", "data"),)
+def update_step_trend(steps_name, data_dict):
+    if steps_name is None or data_dict is None:
         raise PreventUpdate
-    data = df_xfire.query('name in @steps_name')
-    data.to_csv("job_details_small.csv")
-    print("update_chart 1 data", data.shape)
-    #print("update_chart 2 steps_name", steps_name)
+    df = pd.DataFrame.from_dict(data_dict)
+    data = df.query('name in @steps_name')
     #fig = px.timeline(data, x_start="start_time", x_end="end_time", y="name", color="name", hover_data='duration_string')
     fig = px.line(data, x='start_time', y='duration', color='name', hover_data=['duration_string'])
-    #print("update_chart 3 fig", fig)
     fig.update(layout=dict(title=dict(x=0.5)))
-    #print("update_chart 4 data, fig.update", fig)
     return fig
 
 
-@app.callback(
-    Output("download-jenkins-jobs-data", "data"),
-    Input("btn-download-jenkins-jobs-data", "n_clicks"),
-    prevent_initial_call=True,
-)
-def func1(n_clicks):
-    return dcc.send_data_frame(df_jobs.to_csv, "jenkins_jobs.csv")
-
-
-@app.callback(
-    Output("download-job-details-data", "data"),
-    Input("btn-download-job-details-data", "n_clicks"),
-    prevent_initial_call=True,
-)
-def func2(n_clicks):
-    return dcc.send_data_frame(df_xfire.to_csv, "job_details.csv")
-
 if __name__ == "__main__":
-    app.run_server(debug=False, host='0.0.0.0', port="8080")
+    #update_data(job_file, detail_file)
+    
+
+    app.run_server(debug=True, host='0.0.0.0', port="8080")

@@ -1,6 +1,7 @@
 # User
 mapbox_access_token.txt
 .DS_store
+input
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,5 +1,5 @@
 [Unit]
-Description=Road Crash Dash
+Description=Xfire Fabrication Performance Analyzer Dash
 After=multi-user.target
 [Service]
 Type=simple
