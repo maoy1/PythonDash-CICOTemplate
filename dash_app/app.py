@@ -184,10 +184,11 @@ app.layout = html.Div(
         Output("memory-output-all-details", "data"),
     ],
     Input("btn-fetch-data", "n_clicks"),
+    prevent_initial_call=True,
 )
 def update_data(n_clicks):
-    print (f"update_data {WORKDIR}/scripts/prepare_data.sh ${job_file} ${detail_file}")
-    os.system(f"{WORKDIR}/scripts/prepare_data.sh ${job_file} ${detail_file}")
+    print (f"update_data {WORKDIR}/scripts/prepare_data.sh {job_file} {detail_file}")
+    os.system(f"{WORKDIR}/scripts/prepare_data.sh {job_file} {detail_file}")
 
     df_jobs, df_details = update_data_func(job_file, detail_file)
     return df_jobs.to_dict("records"), df_details.to_dict("records")
