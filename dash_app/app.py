@@ -197,7 +197,7 @@ def update_data(n_clicks):
 @app.callback(
     Output("download-jenkins-jobs-data", "data"),
     Input("btn-download-jenkins-jobs-data", "n_clicks"),
-    State("memory-output-all-jobs", "data"),
+    Input("memory-output-all-jobs", "data"),
     prevent_initial_call=True,
 )
 def func1(_, dict):
@@ -207,7 +207,7 @@ def func1(_, dict):
 @app.callback(
     Output("download-job-details-data", "data"),
     Input("btn-download-job-details-data", "n_clicks"),
-    State("memory-output-all-details", "data"),
+    Input("memory-output-all-details", "data"),
     prevent_initial_call=True,
 )
 def func2(_, dict):

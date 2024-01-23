@@ -11,13 +11,13 @@ parser.add_argument(
     "--InputDir",
     help="Input file to extract xfrun log",
     required=False,
-    default="input\\xfrun",
+    default="C:\\projects\\small_projects\\PythonDash-CICOTemplate\\input\\xfrun",
 )
 parser.add_argument(
     "--Output",
     help="The Jenkins Job CSV data file",
     required=False,
-    default="data\\job_details.csv",
+    default="C:\\projects\\small_projects\\PythonDash-CICOTemplate\\data\\job_details.csv",
 )
 argument = parser.parse_args()
 input_dir = argument.InputDir
@@ -39,41 +39,40 @@ def seconds_to_duration(seconds):
         duration_str += f"{seconds:.1f} sec"
     return duration_str.strip()
 
-content = None
-filelist=out_files = sorted(glob.glob(os.path.join(input_dir, "*_xfrun_errlog.log")))
-print ("filelist", filelist)
-for file in filelist:
-    with open(file, encoding="utf-8") as f:
-        content = f.read()
-
 # Define regular expressions for BEGIN and ENDED steps
 begin_pattern = re.compile(r"(.*).errlog:BEGIN ([\.|\w]+) (.*)")
 ended_pattern = re.compile(r"(.*).errlog:ENDED ([\.|\w]+) (.*)( Duration |, )(\d+)")
 sub_ended_pattern = re.compile(r"(.*).errlog:ended (\w+): (.*), (\d+), (\d+)")
 
-# Extract the steps and their relationships
 steps = []
 step_stack = []
-batch_comp = ""
-batchs_main_step = []
+batches_main_step = []
 
-for line in content.splitlines():
-    begin_match = begin_pattern.search(line)
-    ended_match = ended_pattern.search(line)
-    sub_ended_match = sub_ended_pattern.search(line)
+# Extract the steps and their relationships
+def extract_content(content):
+    global steps
+    global step_stack
+    global batches_main_step
+    batch_comp = ""
+    for line in content.splitlines():
+        begin_match = begin_pattern.search(line)
+        ended_match = ended_pattern.search(line)
+        sub_ended_match = sub_ended_pattern.search(line)
 
-    if begin_match:
-        step_batch = begin_match.group(1)
-        if step_batch != batch_comp:
-            # new batch
-            batch_comp = step_batch
-            if len(steps) > 0:
-                batchs_main_step.append(steps[0])
-            steps = []
-            step_stack = []
-        step_name = begin_match.group(2)
-        # workaround: ignore get_cmp.sh, since no ENDED line for it"
-        if step_name != "get_cmp.sh":
+        if begin_match:
+            step_batch = begin_match.group(1)
+            if step_batch != batch_comp:
+                # new batch
+                batch_comp = step_batch
+                if len(steps) > 0:
+                    batches_main_step.append(steps[0])
+                steps = []
+                step_stack = []
+            step_name = begin_match.group(2)
+            #print ("step_name", step_name)
+            # workaround: ignore get_cmp.sh, since no ENDED line for it"
+            if step_name == "get_cmp.sh":
+                continue
             step_start_time = begin_match.group(3)
             if step_start_time.find("-") < 0:
                 # no sub step just timestamp
@@ -93,61 +92,59 @@ for line in content.splitlines():
                 "start_time": step_start_time,
                 "children": [],
             }
-
+            #print ("step start", step)
             if step_stack:
                 step_stack[-1]["children"].append(step)
 
             step_stack.append(step)
             steps.append(step)
-    elif ended_match:
-        step_name = ended_match.group(2)
-        step_end_time = ended_match.group(3)
-        duration = float(ended_match.group(5))
+        elif ended_match:
+            step_name = ended_match.group(2)
+            step_end_time = ended_match.group(3)
+            duration = float(ended_match.group(5))
 
-        if step_end_time:
-            if step_end_time.find("-") > 0:
-                step_end_time = step_end_time.split(" ")[-1]
-                step_end_time = step_end_time.split("+")[0]
-                step_end_time = datetime.strptime(
+            if step_end_time:
+                if step_end_time.find("-") > 0:
+                    step_end_time = step_end_time.split(" ")[-1]
+                    step_end_time = step_end_time.split("+")[0]
+                    step_end_time = datetime.strptime(
+                        step_end_time, "%Y-%m-%dT%H:%M:%S"
+                    ).strftime("%Y-%m-%dT%H:%M:%S")
+                else:
+                    step_end_time = datetime.strptime(
+                        step_end_time, "%a %b %d %H:%M:%S %Z %Y"
+                    ).strftime("%Y-%m-%dT%H:%M:%S")
+
+            step = step_stack.pop()
+            step["end_time"] = step_end_time
+            step["duration"] = duration
+            #print ("step end", step)
+        elif sub_ended_match:
+            step_batch = sub_ended_match.group(1)
+            step_name = f":{sub_ended_match.group(2)}"
+            step_end_time = sub_ended_match.group(3)
+            duration = float(sub_ended_match.group(4))
+            if step_end_time:
+                step_end_time = end_time = datetime.strptime(
                     step_end_time, "%Y-%m-%dT%H:%M:%S"
-                ).strftime("%Y-%m-%dT%H:%M:%S")
-            else:
-                step_end_time = datetime.strptime(
-                    step_end_time, "%a %b %d %H:%M:%S %Z %Y"
-                ).strftime("%Y-%m-%dT%H:%M:%S")
-
-        step = step_stack.pop()
-        step["end_time"] = step_end_time
-        step["duration"] = duration
-    elif sub_ended_match:
-        step_batch = sub_ended_match.group(1)
-        step_name = f":{sub_ended_match.group(2)}"
-        step_end_time = sub_ended_match.group(3)
-        duration = float(sub_ended_match.group(4))
-        if step_end_time:
-            step_end_time = end_time = datetime.strptime(
-                step_end_time, "%Y-%m-%dT%H:%M:%S"
-            )
-        step_start_time = step_end_time - timedelta(seconds=duration)
-        step = {
-            "batch": step_batch,
-            "name": step_name,
-            "start_time": step_start_time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "end_time": step_end_time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "duration": duration,
-        }
-        if step_stack:
-            step_stack[-1]["children"].append(step)
-        steps.append(step)
+                )
+            step_start_time = step_end_time - timedelta(seconds=duration)
+            step = {
+                "batch": step_batch,
+                "name": step_name,
+                "start_time": step_start_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "end_time": step_end_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "duration": duration,
+            }
+            #print ("sub step end", step)
+            if step_stack:
+                step_stack[-1]["children"].append(step)
+            steps.append(step)
 
 # Print the extracted steps and relationships
 # for step in steps:
 #    print(step)
 
-if len(steps) > 0:
-    batchs_main_step.append(steps[0])
-# for batch in batchs_main_step:
-#    print(batch)
 
 
 # Flatten the nested steps
@@ -167,7 +164,22 @@ def flatten_steps(steps, parent=None):
     return flattened
 
 
-flattened_steps = flatten_steps(batchs_main_step)
+
+
+content = None
+filelist=out_files = sorted(glob.glob(os.path.join(input_dir, "*_xfrun_errlog.log")))
+print ("filelist", filelist)
+for file in filelist:
+    with open(file, encoding="utf-8") as f:
+        extract_content(f.read())
+
+if len(steps) > 0:
+    batches_main_step.append(steps[0])
+# for batch in batchs_main_step:
+#    print(batch)
+
+
+flattened_steps = flatten_steps(batches_main_step)
 
 # for f in flattened_steps:
 #    print (f)
