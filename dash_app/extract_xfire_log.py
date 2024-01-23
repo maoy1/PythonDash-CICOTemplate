@@ -1,26 +1,27 @@
+import glob
+import os
 import argparse
 import re
 from datetime import datetime, timedelta
 
 import pandas as pd
 
-parser = argparse.ArgumentParser(description="extract xfire log application arguments")
+parser = argparse.ArgumentParser(description="extract xfrun log arguments")
 parser.add_argument(
-    "--InputFile",
-    help="Input file to extract Jenkins Job file",
+    "--InputDir",
+    help="Input file to extract xfrun log",
     required=False,
-    default="data/00begin_ended_2017-11-22_until_2023-10-13_with_some_gaps_xfrun_errlog.log",
+    default="input\\xfrun",
 )
 parser.add_argument(
     "--Output",
     help="The Jenkins Job CSV data file",
     required=False,
-    default="data/jenkins_jobs.csv",
+    default="data\\job_details.csv",
 )
 argument = parser.parse_args()
-input_file = argument.InputFile
+input_dir = argument.InputDir
 output_file = argument.Output
-print("extract_xfire_log",output_file )
 
 
 def seconds_to_duration(seconds):
@@ -38,10 +39,12 @@ def seconds_to_duration(seconds):
         duration_str += f"{seconds:.1f} sec"
     return duration_str.strip()
 
-
-# Read the content from data.txt
-with open(input_file, "r", encoding="utf-8") as f:
-    content = f.read()
+content = None
+filelist=out_files = sorted(glob.glob(os.path.join(input_dir, "*_xfrun_errlog.log")))
+print ("filelist", filelist)
+for file in filelist:
+    with open(file, encoding="utf-8") as f:
+        content = f.read()
 
 # Define regular expressions for BEGIN and ENDED steps
 begin_pattern = re.compile(r"(.*).errlog:BEGIN ([\.|\w]+) (.*)")

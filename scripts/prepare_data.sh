@@ -14,7 +14,7 @@ else
   mkdir $data_folder
 fi
 # extract jobs detail of substeps duration
-python3 ./dash_app/extract_xfire_log.py --InputFile "input/00begin_ended_2017-11-22_until_2023-10-13_with_some_gaps_xfrun_errlog.log" --Output "$detail_file" || exit 4
+python3 ./dash_app/extract_xfire_log.py --InputDir "input/xfrun" --Output "$detail_file" || exit 3
 
 # extract "start db fabrication" phases duration
-python3 ./dash_app/extract_start_db_jenkins_build_xml.py --InputDir "input/builds" --Output "$job_file" || exit 3
+python3 ./dash_app/extract_start_db_jenkins_build_xml.py --InputDir "input/builds" --Output "$job_file" || exit 4
