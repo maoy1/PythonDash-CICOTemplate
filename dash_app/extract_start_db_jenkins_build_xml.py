@@ -12,7 +12,7 @@ parser.add_argument(
     "--InputDir",
     help="Input file to extract Jenkins Job file",
     required=False,
-    default="C:\\projects\\small_projects\\PythonDash-CICOTemplate\\input\\builds",
+    default="C:\\projects\\small_projects\\PythonDash-CICOTemplate\\input",
 )
 parser.add_argument(
     "--Output",
@@ -50,7 +50,8 @@ filelist_tuple = []
 for dirpath, dirnames, filenames in os.walk(input_dir):
     for filename in fnmatch.filter(filenames, "build.xml"):
         file_path = os.path.join(dirpath, filename)
-        buildnr = dirpath.split(sep="\\")[-1]
+        file_folder = os.path.dirname(file_path)
+        buildnr = os.path.basename(file_folder)
         modify_time = os.path.getmtime(file_path)
         modify_date = time.strftime("%Y-%m-%d", time.localtime(modify_time))
         filelist_tuple.append((modify_date, buildnr, file_path))
@@ -61,7 +62,6 @@ for modify_date, buildnr, file_path in sorted_filelist:
     # tree = ET.parse("RX-9110/2023-10-25a_rx_fx_jenkins_jenkins_jobs/jobs/start db fabrication/builds/7/build.xml")
     tree = ET.parse(file_path)
     root = tree.getroot()
-
     dbnr = ""
     # get db number
     for sub_build in root.findall(".//hudson.model.TextParameterValue"):
