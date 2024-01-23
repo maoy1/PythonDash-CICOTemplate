@@ -74,6 +74,7 @@ app.layout = html.Div(
                         html.Button(
                             "Download Jenkins Jobs Data csv",
                             id="btn-download-jenkins-jobs-data",
+                            n_clicks=0,
                         ),
                         dcc.Download(id="download-jenkins-jobs-data"),
                     ],
@@ -84,6 +85,7 @@ app.layout = html.Div(
                         html.Button(
                             "Download Jobs Details csv",
                             id="btn-download-job-details-data",
+                            n_clicks=0,
                         ),
                         dcc.Download(id="download-job-details-data"),
                     ],
@@ -91,7 +93,7 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     children=[
-                        html.Button("Update Data Files", id="btn-fetch-data"),
+                        html.Button("Update Data Files", id="btn-fetch-data", n_clicks=0,),
                         html.Label(f"   Last Update: {JOBS[0]} and {BATCHES[0]}"),
                     ],
                     style={
@@ -187,6 +189,8 @@ app.layout = html.Div(
     prevent_initial_call=True,
 )
 def update_data(n_clicks):
+    if n_clicks == 0:
+        raise PreventUpdate
     print (f"update_data {WORKDIR}/scripts/prepare_data.sh {job_file} {detail_file}")
     os.system(f"{WORKDIR}/scripts/prepare_data.sh {job_file} {detail_file}")
 
@@ -200,7 +204,9 @@ def update_data(n_clicks):
     Input("memory-output-all-jobs", "data"),
     prevent_initial_call=True,
 )
-def func1(_, dict):
+def func1(n_clicks, dict):
+    if n_clicks == 0 or dict is None:
+        raise PreventUpdate
     return dcc.send_data_frame(pd.DataFrame.from_dict(dict).to_csv, "jenkins_jobs.csv")
 
 
@@ -210,7 +216,9 @@ def func1(_, dict):
     Input("memory-output-all-details", "data"),
     prevent_initial_call=True,
 )
-def func2(_, dict):
+def func2(n_clicks, dict):
+    if n_clicks == 0 or dict is None:
+        raise PreventUpdate
     return dcc.send_data_frame(pd.DataFrame.from_dict(dict).to_csv, "job_details.csv")
 
 
