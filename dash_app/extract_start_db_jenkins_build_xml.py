@@ -7,24 +7,22 @@ import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
-
 parser = argparse.ArgumentParser(description="Extract db fabrication data arguments")
 parser.add_argument(
     "--InputDir",
     help="Input file to extract Jenkins Job file",
     required=False,
-    default="C:\\projects\\small_projects\\RX-9110\\2023-10-25a_rx_fx_jenkins_jenkins_jobs\\jobs\\start db fabrication\\builds",
+    default="C:\\projects\\small_projects\\PythonDash-CICOTemplate\\input\\builds",
 )
 parser.add_argument(
     "--Output",
     help="The Jenkins Job CSV data file",
     required=False,
-    default="data/jenkins_jobs.csv",
+    default="C:\\projects\\small_projects\\RX-9110\\data\\jenkins_jobs.csv",
 )
 argument = parser.parse_args()
 input_dir = argument.InputDir
 output_file = argument.Output
-print("extract_start_db_jenkins_build_xml",output_file )
 
 def duration_to_seconds(duration_str):
     units = {"day": 86400, "hr": 3600, "min": 60, "sec": 1}
@@ -48,19 +46,18 @@ def seconds_to_duration(seconds):
     return duration_str.strip()
 
 
-filelist = []
+filelist_tuple = []
 for dirpath, dirnames, filenames in os.walk(input_dir):
     for filename in fnmatch.filter(filenames, "build.xml"):
         file_path = os.path.join(dirpath, filename)
         buildnr = dirpath.split(sep="\\")[-1]
         modify_time = os.path.getmtime(file_path)
         modify_date = time.strftime("%Y-%m-%d", time.localtime(modify_time))
-        filelist.append((modify_date, buildnr, file_path))
-        # print(f"Processing: {file_path}")
-
+        filelist_tuple.append((modify_date, buildnr, file_path))
+sorted_filelist = sorted(filelist_tuple, key=lambda x: int(x[1]))
 
 data = []
-for modify_date, buildnr, file_path in filelist:
+for modify_date, buildnr, file_path in sorted_filelist:
     # tree = ET.parse("RX-9110/2023-10-25a_rx_fx_jenkins_jenkins_jobs/jobs/start db fabrication/builds/7/build.xml")
     tree = ET.parse(file_path)
     root = tree.getroot()

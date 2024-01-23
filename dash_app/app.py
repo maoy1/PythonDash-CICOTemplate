@@ -5,7 +5,7 @@ import sys
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, State, dcc, html
+from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
 parser = argparse.ArgumentParser(description="Dash application arguments")
